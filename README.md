@@ -6,8 +6,8 @@ esp32から検知情報を受信しユーザーが外にいればユーザーに
 
 ## やること
 
-- [ ] 環境構築
-  - [ ] Nginx + Go + PostgreSQLのDocker構築
+- [x] 環境構築
+  - [x] Nginx + Go + PostgreSQLのDocker構築
 - [ ] コード
   - [ ] esp32受信用したとき
     - [ ] esp32用のPOST処理
