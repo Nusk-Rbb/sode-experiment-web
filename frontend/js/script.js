@@ -11,7 +11,7 @@ function success(position) {
     const longitude = position.coords.longitude;
     document.getElementById('status').textContent = "位置情報を送信中...";
 
-    fetch('http://localhost:8080/check-location', {
+    fetch('http://golang:8080/check-location', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

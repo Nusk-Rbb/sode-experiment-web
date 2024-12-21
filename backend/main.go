@@ -8,7 +8,6 @@ import (
 	"math"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
@@ -34,11 +33,6 @@ type Result struct {
 var db *sql.DB
 
 func main() {
-	log.Print("Prepare db...")
-	if err := prepare(); err != nil {
-		log.Fatal(err)
-	}
-
 	var err error
 	db, err = connect()
 	if err != nil {
@@ -63,13 +57,14 @@ func main() {
 }
 
 func connect() (*sql.DB, error) {
-	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", 
+	dbDriver := "postgres"
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable", 
 							os.Getenv("DB_HOST"), 
-							os.Getenv("DB_PORT"), 
 							os.Getenv("DB_USER"), 
-							os.Getenv("DB_PASSWORD"), 
+							os.Getenv("DB_PASS"), 
 							os.Getenv("DB_NAME"))
-	db, err := sql.Open("postgres", connStr)
+	log.Println(dsn)
+	db, err := sql.Open(dbDriver, dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -128,32 +123,4 @@ func checkLocation(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
-}
-
-func prepare() error {
-	db, err := connect()
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	for i := 0; i < 60; i++ {
-		if err := db.Ping(); err == nil {
-			break
-		}
-		time.Sleep(time.Second)
-	}
-
-	if _, err := db.Exec("DROP TABLE IF EXISTS location_home"); err != nil {
-		return err
-	}
-
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS location_home (id SERIAL, latitude FLOAT NOT NULL, longitude FLOAT NOT NULL)"); err != nil {
-		return err
-	}
-
-	if _, err := db.Exec("INSERT INTO location_home (latitude, longitude) VALUES ($1, $2);", fmt.Sprintf("Blog post #%d %d", 35.681236, 139.767125)); err != nil {
-		return err
-	}
-	return nil
 }

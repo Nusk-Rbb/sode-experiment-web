@@ -1,7 +1,8 @@
 services:
   db:
-    image: postgres:15-alpine
+    build: ./postgres
     restart: always
+    hostname: postgres
     ports:
       - "5432:5432"
     environment:
@@ -10,8 +11,10 @@ services:
       POSTGRES_DB: location_app
       TZ: "Asia/Tokyo"
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - ./postgres/data:/var/lib/postgresql/data
+
   backend:
+    hostname: golang
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -21,10 +24,12 @@ services:
       TZ: "Asia/Tokyo"
     depends_on:
       - db
+
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    hostname: nginx
     ports:
       - "80:80"
     environment:

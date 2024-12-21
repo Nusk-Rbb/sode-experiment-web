@@ -1,3 +1,4 @@
+-- テーブル作成
 CREATE TABLE IF NOT EXISTS home_location (
     id SERIAL PRIMARY KEY,
     latitude FLOAT NOT NULL,
