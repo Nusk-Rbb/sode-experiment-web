@@ -1,0 +1,159 @@
+package main
+
+import (
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"log"
+	"math"
+	"net/http"
+	"os"
+	"time"
+
+	"github.com/gorilla/mux"
+	_ "github.com/lib/pq"
+)
+
+// LocationDataはフロントエンドから送信される位置情報
+type LocationData struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
+// HomeLocationはデータベースから取得する自宅の緯度経度
+type HomeLocation struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
+// Resultは判定結果
+type Result struct {
+	Status string `json:"status"`
+}
+
+var db *sql.DB
+
+func main() {
+	log.Print("Prepare db...")
+	if err := prepare(); err != nil {
+		log.Fatal(err)
+	}
+
+	var err error
+	db, err = connect()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	// DB接続確認
+	err = db.Ping()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Connected to database")
+	router := mux.NewRouter()
+	router.HandleFunc("/check-location", checkLocation).Methods("POST")
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	fmt.Println("Server listening on port: " + port)
+	log.Fatal(http.ListenAndServe(":"+port, router))
+}
+
+func connect() (*sql.DB, error) {
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", 
+							os.Getenv("DB_HOST"), 
+							os.Getenv("DB_PORT"), 
+							os.Getenv("DB_USER"), 
+							os.Getenv("DB_PASSWORD"), 
+							os.Getenv("DB_NAME"))
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
+}
+
+// 指定した緯度経度からの距離を計算する関数
+func calculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
+    const earthRadius = 6371 // 地球の半径 (km)
+    lat1Rad := lat1 * math.Pi / 180
+    lon1Rad := lon1 * math.Pi / 180
+    lat2Rad := lat2 * math.Pi / 180
+    lon2Rad := lon2 * math.Pi / 180
+    
+    deltaLat := lat2Rad - lat1Rad
+    deltaLon := lon2Rad - lon1Rad
+
+    a := math.Sin(deltaLat/2)*math.Sin(deltaLat/2) +
+        math.Cos(lat1Rad) * math.Cos(lat2Rad) *
+        math.Sin(deltaLon/2)*math.Sin(deltaLon/2)
+    c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+    distance := earthRadius * c
+    return distance // km
+}
+func checkLocation(w http.ResponseWriter, r *http.Request) {
+    // CORSヘッダーを設定
+    w.Header().Set("Access-Control-Allow-Origin", "*")
+    w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+    w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+    if r.Method == "OPTIONS"{
+        w.WriteHeader(http.StatusOK)
+        return
+    }
+	var locationData LocationData
+	err := json.NewDecoder(r.Body).Decode(&locationData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+    var homeLocation HomeLocation
+	err = db.QueryRow("SELECT latitude, longitude FROM home_location LIMIT 1").Scan(&homeLocation.Latitude, &homeLocation.Longitude)
+	if err != nil {
+        http.Error(w, "Error fetching home location", http.StatusInternalServerError)
+        log.Println(err)
+        return
+	}
+	
+	distance := calculateDistance(locationData.Latitude, locationData.Longitude, homeLocation.Latitude, homeLocation.Longitude)
+
+	var result Result
+	if distance <= 0.1 {
+		result.Status = "家"
+	} else {
+		result.Status = "外"
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+func prepare() error {
+	db, err := connect()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	for i := 0; i < 60; i++ {
+		if err := db.Ping(); err == nil {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+
+	if _, err := db.Exec("DROP TABLE IF EXISTS location_home"); err != nil {
+		return err
+	}
+
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS location_home (id SERIAL, latitude FLOAT NOT NULL, longitude FLOAT NOT NULL)"); err != nil {
+		return err
+	}
+
+	if _, err := db.Exec("INSERT INTO location_home (latitude, longitude) VALUES ($1, $2);", fmt.Sprintf("Blog post #%d %d", 35.681236, 139.767125)); err != nil {
+		return err
+	}
+	return nil
+}

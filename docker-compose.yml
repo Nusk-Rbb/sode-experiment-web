@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: location_app
+      TZ: "Asia/Tokyo"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      TZ: "Asia/Tokyo"
+    depends_on:
+      - db
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    environment:
+      TZ: "Asia/Tokyo"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+volumes:
+  db_data:

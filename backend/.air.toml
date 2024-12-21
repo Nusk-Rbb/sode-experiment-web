@@ -1,0 +1,8 @@
+[build]
+  cmd = "go build -o main ."
+  bin = "main"
+  include_ext = ["go", "tpl", "html"]
+  exclude_dir = ["assets", "tmp", "vendor", "node_modules"]
+  log = "build-errors.log"
+  delay = 1000 # ms
+  stop_on_error = true
