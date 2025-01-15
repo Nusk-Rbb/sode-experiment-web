@@ -9,19 +9,23 @@ document.getElementById('getLocationBtn').addEventListener('click', () => {
 function success(position) {
     const latitude = position.coords.latitude;
     const longitude = position.coords.longitude;
+    const request_body = JSON.stringify({ latitude, longitude });
+    console.log(request_body);
     document.getElementById('status').textContent = "位置情報を送信中...";
 
     fetch('http://172.18.0.3:8080/check-location', {
         method: 'POST',
-        mode: 'no-cors',
+        mode: 'cors',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ latitude, longitude }),
+        body: request_body
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log(response);
+    })
     .then(data => {
-        document.getElementById('status').textContent = `現在地は「${data.status}」です。`;
+        console.log(data);
     })
     .catch(error => {
         console.error('Error:', error);
