@@ -27,7 +27,10 @@ type HomeLocation struct {
 
 // Resultは判定結果
 type Result struct {
-	Status string `json:"status"`
+	Location LocationData `json:"location"`
+	Home     HomeLocation `json:"home"`
+	Distance float64      `json:"distance"`
+	Status 	 string       `json:"status"`
 }
 
 var db *sql.DB
@@ -101,36 +104,46 @@ func calculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
 }
 
 func checkLocation(w http.ResponseWriter, r *http.Request) {
-	// CORSヘッダーを設定
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost")
 	w.Header().Set("Access-Control-Allow-Methods", "POST")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-	var locationData LocationData
-	err := json.NewDecoder(r.Body).Decode(&locationData)
+	var location LocationData
+	err := json.NewDecoder(r.Body).Decode(&location)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		fmt.Println(err)
 		return
 	}
-	var homeLocation HomeLocation
-	err = db.QueryRow("SELECT latitude, longitude FROM home_location WHERE id = 1").Scan(&homeLocation.Latitude, &homeLocation.Longitude)
+
+	fmt.Printf("Received location: %+v\n", location)
+
+	var home HomeLocation
+	err = db.QueryRow("SELECT latitude, longitude FROM home_location WHERE id = 1").
+		Scan(&home.Latitude, &home.Longitude)
 	if err != nil {
 		http.Error(w, "Error fetching home location", http.StatusInternalServerError)
-		fmt.Println(err)
 		return
 	}
 
-	distance := calculateDistance(locationData.Latitude, locationData.Longitude, homeLocation.Latitude, homeLocation.Longitude)
+	distance := calculateDistance(location.Latitude, location.Longitude, home.Latitude, home.Longitude)
 
-	var result Result
+	result := Result{
+		Location: location,
+		Home:     home,
+		Distance: distance,
+	}
+
 	if distance <= 0.1 {
 		result.Status = "home"
 	} else {
 		result.Status = "outside"
 	}
 
-	fmt.Println(result)
+	fmt.Printf("Location: %+v\n", location)
+	fmt.Printf("Home: %+v\n", home)
+	fmt.Printf("Distance: %.2f km\n", distance)
+	fmt.Printf("Status: %s\n", result.Status)
 
 	json.NewEncoder(w).Encode(result)
 }
