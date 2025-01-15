@@ -1,0 +1,1 @@
+curl -X POST -H "Content-Type: application/json" -d '{"latitude":35.681236, "longitude":139.767125}' http://backend:8080/check-location -vv
