@@ -49,10 +49,7 @@ func main() {
 	router.HandleFunc("/check-location", checkLocation).Methods("POST")
 
 	// 疎通テスト用
-	router.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "Hello, World!"})
-	})
+	router.HandleFunc("/test", test).Methods("GET")
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -60,6 +57,13 @@ func main() {
 	}
 	fmt.Println("Server listening on port: " + port)
 	log.Fatal(http.ListenAndServe(":"+port, router))
+}
+
+func test(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost")
+	w.Header().Set("Access-Control-Allow-Methods", "GET")
+	json.NewEncoder(w).Encode(map[string]string{"message": "Hello, World!"})
 }
 
 func connect() (*sql.DB, error) {
@@ -98,18 +102,15 @@ func calculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
 
 func checkLocation(w http.ResponseWriter, r *http.Request) {
 	// CORSヘッダーを設定
+	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Methods", "POST")
 
-	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
 	var locationData LocationData
 	err := json.NewDecoder(r.Body).Decode(&locationData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		fmt.Println(err)
 		return
 	}
 	var homeLocation HomeLocation
@@ -120,11 +121,6 @@ func checkLocation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println("Latitude:", locationData.Latitude)
-	fmt.Println("Longitude:", locationData.Longitude)
-	fmt.Println("Home Latitude:", homeLocation.Latitude)
-	fmt.Println("Home Longitude:", homeLocation.Longitude)
-
 	distance := calculateDistance(locationData.Latitude, locationData.Longitude, homeLocation.Latitude, homeLocation.Longitude)
 
 	var result Result
@@ -134,9 +130,7 @@ func checkLocation(w http.ResponseWriter, r *http.Request) {
 		result.Status = "outside"
 	}
 
-	fmt.Println("Distance:", distance)
-	fmt.Println("Status:", result.Status)
+	fmt.Println(result)
 
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
 }
