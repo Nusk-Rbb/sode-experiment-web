@@ -1,28 +1,12 @@
-# ベースイメージ
-FROM golang:1.23-alpine AS builder
+# Choose whatever you want, version >= 1.16
+FROM golang:1.23-alpine
 
-# 作業ディレクトリ
 WORKDIR /app
 
-# プロジェクトの依存関係を取得
+RUN go install github.com/air-verse/air@latest
+
 COPY go.mod go.sum ./
-RUN go mod tidy
-
-# ソースコードをコピー
-COPY . .
-
-# ビルド
-RUN go build -o main .
-
-
-# 最終イメージ
-FROM alpine:latest
-
-# 作業ディレクトリ
-WORKDIR /app
-
-# ビルドされた実行ファイルをコピー
-COPY --from=builder /app/main .
+RUN go mod download
 
 # 環境変数を設定
 ENV DB_HOST=postgres
@@ -34,5 +18,4 @@ ENV DB_NAME=location_app
 # ポートの設定
 EXPOSE 8080
 
-# 実行コマンド
-CMD ["./main"]
+CMD ["air", "-c", ".air.toml"]
