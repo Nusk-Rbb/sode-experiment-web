@@ -8,15 +8,42 @@ body {
     background-color: #f0f0f0;
 }
 
-.container {
+#auth-container {
     text-align: center;
     padding: 20px;
     background-color: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
+#auth-form input, #auth-form button {
+    margin-bottom: 10px;
+}
+#main-container {
+    text-align: center;
+    padding: 20px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+#main-container header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20px; /* ヘッダー下の余白を追加 */
+}
+#main-container header button {
+    padding: 5px 10px;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    
+}
+#main-container header button:hover {
+    background-color: #d32f2f;
+}
 
-button {
+#main-content button {
     padding: 10px 20px;
     margin-top: 10px;
     background-color: #4CAF50;
@@ -25,7 +52,10 @@ button {
     border-radius: 4px;
     cursor: pointer;
 }
+#changeEmailForm input, #changeEmailForm button {
+    margin-bottom: 10px;
+}
 
-button:hover {
+#main-content button:hover {
     background-color: #45a049;
 }
