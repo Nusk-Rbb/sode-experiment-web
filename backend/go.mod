@@ -1,10 +1,15 @@
-module sode-web-backend
+module backend
 
 go 1.23.3
 
 require (
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.10.9
+	golang.org/x/crypto v0.32.0
 )
 
-require github.com/rs/cors v1.11.1
+require (
+	github.com/rs/cors v1.11.1
+	gopkg.in/yaml.v2 v2.4.0
+)

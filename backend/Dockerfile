@@ -1,11 +1,11 @@
 # Choose whatever you want, version >= 1.16
-FROM golang:1.23-alpine
+FROM golang:1.23-bullseye
 
 WORKDIR /app
 
 RUN go install github.com/air-verse/air@latest
 
-COPY go.mod go.sum ./
+COPY . .
 RUN go mod download
 
 # 環境変数を設定

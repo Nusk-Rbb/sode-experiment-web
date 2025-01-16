@@ -1,6 +1,7 @@
 package main
 
 import (
+	"backend/util"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -8,12 +9,22 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/rs/cors"
 )
+
+type CheckerData struct {
+	Latitude    float64 `json:"latitude"`
+	Longitude   float64 `json:"longitude"`
+	HumanSensor bool    `json:human_sensor`
+	LightSensor bool    `json:light_sensor`
+}
 
 // LocationDataはフロントエンドから送信される位置情報
 type LocationData struct {
@@ -35,9 +46,32 @@ type Result struct {
 	Status   string       `json:"status"`
 }
 
+// Userはユーザー情報
+type User struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// Claims JWTクレーム
+type Claims struct {
+	Email string `json:"email"`
+	jwt.StandardClaims
+}
+
+// JWTの秘密鍵
+var jwtKey = []byte(os.Getenv("JWT_SECRET"))
+
 var db *sql.DB
 
 func main() {
+	// jwt keyを取得
+	if jwtKey == nil {
+		jwtKey = []byte("supersecretkey")
+		fmt.Println("JWT key from default")
+	} else {
+		fmt.Println("JWT key from env")
+	}
+
 	var err error
 	db, err = connect()
 	if err != nil {
@@ -51,15 +85,20 @@ func main() {
 	}
 	fmt.Println("Connected to database")
 	router := mux.NewRouter()
+	router.HandleFunc("/login", login).Methods("POST")
+	router.HandleFunc("/signup", signup).Methods("POST")
 	router.HandleFunc("/check-location", checkLocation).Methods("POST")
-
-	h := cors.Default().Handler(router)
+	router.HandleFunc("/put-user-location", putUserLocation).Methods("POST")
+	router.HandleFunc("/put-home-location", putHomeLocation).Methods("POST")
+	router.HandleFunc("/change-email", changeEmail).Methods("POST")
 
 	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "OK"})
 	})
+
+	h := cors.Default().Handler(router)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -103,7 +142,7 @@ func calculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
 	return distance // km
 }
 
-func checkLocation(w http.ResponseWriter, r *http.Request) {
+func putUserLocation(w http.ResponseWriter, r *http.Request) {
 	var location LocationData
 	err := json.NewDecoder(r.Body).Decode(&location)
 	if err != nil {
@@ -113,18 +152,56 @@ func checkLocation(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("Received location: %+v\n", location)
 
-	var home HomeLocation
-	err = db.QueryRow("SELECT latitude, longitude FROM home_location WHERE id = 1").
-		Scan(&home.Latitude, &home.Longitude)
+	_, err = db.Exec("INSERT INTO user_location (latitude, longitude) VALUES ($1, $2)", location.Latitude, location.Longitude)
 	if err != nil {
-		http.Error(w, "Error fetching home location", http.StatusInternalServerError)
+		http.Error(w, "Error inserting user location", http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(nil)
+}
+
+func putHomeLocation(w http.ResponseWriter, r *http.Request) {
+	var location LocationData
+	err := json.NewDecoder(r.Body).Decode(&location)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	distance := calculateDistance(location.Latitude, location.Longitude, home.Latitude, home.Longitude)
+	fmt.Printf("Received location: %+v\n", location)
+
+	_, err = db.Exec("INSERT INTO home_location (latitude, longitude) VALUES ($1, $2)", location.Latitude, location.Longitude)
+	if err != nil {
+		http.Error(w, "Error inserting user location", http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(nil)
+}
+
+func checkLocation(w http.ResponseWriter, r *http.Request) {
+
+	var check CheckerData
+	err := json.NewDecoder(r.Body).Decode(&check)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	var location HomeLocation
+	err = db.QueryRow("SELECT latitude, longitude FROM user_location ORDER BY id ASC LIMIT 1").
+		Scan(&location.Latitude, &location.Longitude)
+	if err != nil {
+		http.Error(w, "Error fetching user location", http.StatusInternalServerError)
+		return
+	}
+
+	distance := calculateDistance(location.Latitude, location.Longitude, check.Latitude, check.Longitude)
+
+	var home HomeLocation
+	home.Latitude = check.Latitude
+	home.Longitude = check.Longitude
 
 	result := Result{
-		Location: location,
+		Location: LocationData(location),
 		Home:     home,
 		Distance: distance,
 	}
@@ -135,10 +212,122 @@ func checkLocation(w http.ResponseWriter, r *http.Request) {
 		result.Status = "outside"
 	}
 
+	var email string
+	err = db.QueryRow("SELECT email FROM users ORDER BY id ASC LIMIT 1").
+		Scan(&email)
+	if err != nil {
+		http.Error(w, "Error fetching user Authentication", http.StatusInternalServerError)
+		return
+	}
+	if result.Status == "outside" && check.HumanSensor || check.LightSensor {
+		err = util.SmtpSendMail("dpanda.kky@gmail.com", "誰かが家に侵入しました！", time.Now().String())
+		if err != nil {
+			http.Error(w, "Error Send email", http.StatusInternalServerError)
+		}
+	}
+
 	fmt.Printf("Location: %+v\n", location)
 	fmt.Printf("Home: %+v\n", home)
 	fmt.Printf("Distance: %.2f km\n", distance)
 	fmt.Printf("Status: %s\n", result.Status)
 
 	json.NewEncoder(w).Encode(result)
+}
+
+func generateToken(email string) (string, error) {
+	expirationTime := time.Now().Add(5 * time.Hour)
+	claims := &Claims{
+		Email: email,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: expirationTime.Unix(),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString(jwtKey)
+	return tokenString, err
+}
+
+func signup(w http.ResponseWriter, r *http.Request) {
+	var user User
+	err := json.NewDecoder(r.Body).Decode(&user)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
+		return
+	}
+
+	_, err = db.Exec("INSERT INTO users (email, password_hash) VALUES ($1, $2)", user.Email, string(hashedPassword))
+	if err != nil {
+		http.Error(w, "Email already exists", http.StatusConflict)
+		return
+	}
+
+	token, err := generateToken(user.Email)
+	if err != nil {
+		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"token": token})
+}
+
+func login(w http.ResponseWriter, r *http.Request) {
+	var user User
+	err := json.NewDecoder(r.Body).Decode(&user)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var hashedPassword string
+	err = db.QueryRow("SELECT password_hash FROM users WHERE email = $1", user.Email).Scan(&hashedPassword)
+	if err != nil {
+		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+		return
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(user.Password))
+	if err != nil {
+		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+		return
+	}
+
+	token, err := generateToken(user.Email)
+	if err != nil {
+		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"token": token})
+}
+
+func changeEmail(w http.ResponseWriter, r *http.Request) {
+	var user User
+	err := json.NewDecoder(r.Body).Decode(&user)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	tokenString := r.Header.Get("Authorization")
+	token, _ := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+	claims, ok := token.Claims.(*Claims)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	_, err = db.Exec("UPDATE users SET email = $1 WHERE email = $2", user.Email, claims.Email)
+	if err != nil {
+		http.Error(w, "Failed to update email", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 }
