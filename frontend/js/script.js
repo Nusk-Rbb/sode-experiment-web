@@ -15,7 +15,6 @@ function success(position) {
 
     fetch('http://172.18.0.3:8080/check-location', {
         method: 'POST',
-        mode: 'cors',
         headers: {
             'Content-Type': 'application/json',
         },
