@@ -11,6 +11,8 @@ import (
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
+
+	"github.com/rs/cors"
 )
 
 // LocationDataはフロントエンドから送信される位置情報
@@ -30,7 +32,7 @@ type Result struct {
 	Location LocationData `json:"location"`
 	Home     HomeLocation `json:"home"`
 	Distance float64      `json:"distance"`
-	Status 	 string       `json:"status"`
+	Status   string       `json:"status"`
 }
 
 var db *sql.DB
@@ -51,22 +53,20 @@ func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/check-location", checkLocation).Methods("POST")
 
-	// 疎通テスト用
-	router.HandleFunc("/test", test).Methods("GET")
+	h := cors.Default().Handler(router)
+
+	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "OK"})
+	})
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 	fmt.Println("Server listening on port: " + port)
-	log.Fatal(http.ListenAndServe(":"+port, router))
-}
-
-func test(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost")
-	w.Header().Set("Access-Control-Allow-Methods", "GET")
-	json.NewEncoder(w).Encode(map[string]string{"message": "Hello, World!"})
+	log.Fatal(http.ListenAndServe(":"+port, h))
 }
 
 func connect() (*sql.DB, error) {
@@ -104,11 +104,6 @@ func calculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
 }
 
 func checkLocation(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost")
-	w.Header().Set("Access-Control-Allow-Methods", "POST")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
 	var location LocationData
 	err := json.NewDecoder(r.Body).Decode(&location)
 	if err != nil {
