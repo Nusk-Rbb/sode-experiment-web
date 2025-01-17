@@ -220,7 +220,7 @@ func checkLocation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if result.Status == "outside" && check.HumanSensor || check.LightSensor {
-		err = util.SmtpSendMail("dpanda.kky@gmail.com", "誰かが家に侵入しました！", time.Now().String())
+		err = util.SmtpSendMail(email, "誰かが家に侵入しました！", time.Now().Format("2006-01-02 15:04:05")+"\n誰かが家に侵入しました。")
 		if err != nil {
 			http.Error(w, "Error Send email", http.StatusInternalServerError)
 		}
