@@ -12,7 +12,7 @@ document.getElementById('signupBtn').addEventListener('click', () => {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
 
-    fetch('http://172.18.0.3:8080/signup', {
+    fetch('http://172.19.0.3:8080/signup', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -35,7 +35,7 @@ document.getElementById('signupBtn').addEventListener('click', () => {
 document.getElementById('loginBtn').addEventListener('click', () => {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
-    fetch('http://172.18.0.3:8080/login', {
+    fetch('http://172.19.0.3:8080/login', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -79,7 +79,7 @@ function success(position) {
     const light_sensor = true;
     document.getElementById('status').textContent = "位置情報を送信中...";
 
-    fetch('http://172.18.0.3:8080/check-location', {
+    fetch('http://172.19.0.3:8080/check-location', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -102,7 +102,7 @@ function putUserLocation(position) {
     const longitude = position.coords.longitude;
     document.getElementById('status').textContent = "位置情報を送信中...";
 
-    fetch('http://172.18.0.3:8080/put-user-location', {
+    fetch('http://172.19.0.3:8080/put-user-location', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -125,7 +125,7 @@ function putHomeLocation(position) {
     const longitude = position.coords.longitude;
     document.getElementById('status').textContent = "位置情報を送信中...";
 
-    fetch('http://172.18.0.3:8080/put-home-location', {
+    fetch('http://172.19.0.3:8080/put-home-location', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -154,7 +154,7 @@ document.getElementById('changeEmailBtn').addEventListener('click', () => {
 document.getElementById('submitEmailBtn').addEventListener('click', () => {
     const newEmail = document.getElementById('newEmail').value;
 
-    fetch('http://172.18.0.3:8080/change-email', {
+    fetch('http://172.19.0.3:8080/change-email', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
