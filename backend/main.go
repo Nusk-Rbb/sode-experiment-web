@@ -22,8 +22,8 @@ import (
 type CheckerData struct {
 	Latitude    float64 `json:"latitude"`
 	Longitude   float64 `json:"longitude"`
-	HumanSensor bool    `json:human_sensor`
-	LightSensor bool    `json:light_sensor`
+	HumanSensor bool    `json:"human_sensor"`
+	LightSensor bool    `json:"light_sensor"`
 }
 
 // LocationDataはフロントエンドから送信される位置情報
@@ -179,7 +179,6 @@ func putHomeLocation(w http.ResponseWriter, r *http.Request) {
 }
 
 func checkLocation(w http.ResponseWriter, r *http.Request) {
-
 	var check CheckerData
 	err := json.NewDecoder(r.Body).Decode(&check)
 	if err != nil {
@@ -187,7 +186,7 @@ func checkLocation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var location HomeLocation
-	err = db.QueryRow("SELECT latitude, longitude FROM user_location ORDER BY id ASC LIMIT 1").
+	err = db.QueryRow("SELECT latitude, longitude FROM user_location ORDER BY id DESC LIMIT 1").
 		Scan(&location.Latitude, &location.Longitude)
 	if err != nil {
 		http.Error(w, "Error fetching user location", http.StatusInternalServerError)
@@ -219,8 +218,10 @@ func checkLocation(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error fetching user Authentication", http.StatusInternalServerError)
 		return
 	}
-	if result.Status == "outside" && check.HumanSensor || check.LightSensor {
-		err = util.SmtpSendMail(email, "誰かが家に侵入しました！", time.Now().Format("2006-01-02 15:04:05")+"\n誰かが家に侵入しました。")
+
+	status := result.Status == "outside"
+	if status && check.HumanSensor || check.LightSensor {
+		err = util.SmtpSendMail("dpanda.kky@gmail.com", "誰かが家に侵入しました！", time.Now().Format("2006-01-02 15:04:05")+"\n誰かが家に侵入しました。")
 		if err != nil {
 			http.Error(w, "Error Send email", http.StatusInternalServerError)
 		}

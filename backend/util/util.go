@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/smtp"
 
@@ -57,6 +58,7 @@ func SmtpSendMail(mailAddress string, mailSubject string, mailBody string) error
 		"\r\n" +
 		mailBody + "\r\n")
 
+	fmt.Println("SMTPサーバ接続開始")
 	// SMTPサーバ接続
 	auth := smtp.PlainAuth("", smtpConn.AuthAddress, smtpConn.AuthPassword, smtpConn.SmtpServer)
 
